@@ -232,7 +232,7 @@ class Graph(object):
             if row_idx != col_idx:
                 self._hessian[col_idx * dim: (col_idx + 1) * dim, row_idx * dim: (row_idx + 1) * dim] = np.transpose(contrib)
 
-    def optimize(self, tol=1e-4, max_iter=20, fix_first_pose=True):
+    def optimize(self, tol=1e-4, max_iter=20, fix_first_pose=True, verbose=True):
         r"""Optimize the :math:`\chi^2` error for the ``Graph``.
 
         Parameters
@@ -243,6 +243,8 @@ class Graph(object):
             The maximum number of iterations
         fix_first_pose : bool
             If ``True``, we will fix the first pose
+        verbose : bool
+            If ``True``, we will print the progress of the optimization
 
         """
         n = len(self._vertices)
@@ -252,8 +254,9 @@ class Graph(object):
         chi2_prev = -1.
 
         # For displaying the optimization progress
-        print("\nIteration                chi^2        rel. change")
-        print("---------                -----        -----------")
+        if verbose:
+            print("\nIteration                chi^2        rel. change")
+            print("---------                -----        -----------")
 
         for i in range(max_iter):
             self._calc_chi2_gradient_hessian()
@@ -261,11 +264,13 @@ class Graph(object):
             # Check for convergence (from the previous iteration); this avoids having to calculate chi^2 twice
             if i > 0:
                 rel_diff = (chi2_prev - self._chi2) / (chi2_prev + np.finfo(float).eps)
-                print("{:9d} {:20.4f} {:18.6f}".format(i, self._chi2, -rel_diff))
+                if verbose:
+                    print("{:9d} {:20.4f} {:18.6f}".format(i, self._chi2, -rel_diff))
                 if self._chi2 < chi2_prev and rel_diff < tol:
-                    return
+                    return i, self._chi2, -rel_diff
             else:
-                print("{:9d} {:20.4f}".format(i, self._chi2))
+                if verbose:
+                    print("{:9d} {:20.4f}".format(i, self._chi2))
 
             # Update the previous iteration's chi^2 error
             chi2_prev = self._chi2
@@ -287,7 +292,9 @@ class Graph(object):
         # If we reached the maximum number of iterations, print out the final iteration's results
         self.calc_chi2()
         rel_diff = (chi2_prev - self._chi2) / (chi2_prev + np.finfo(float).eps)
-        print("{:9d} {:20.4f} {:18.6f}".format(max_iter, self._chi2, -rel_diff))
+        if verbose:
+            print("{:9d} {:20.4f} {:18.6f}".format(max_iter, self._chi2, -rel_diff))
+        return max_iter, self._chi2, -rel_diff
 
     def to_g2o(self, outfile):
         """Save the graph in .g2o format.
